@@ -4,66 +4,218 @@ SYS_WRITE equ 4
 STDIN equ 0
 STDOUT equ 1
 
-%define SYSCALL 0x80
+NUMBERS_AMOUNT equ 3
 
 section .data
+    prompt_values db "Enter number: ", 0
+    prompt_values_len equ $ - prompt_values
+
+    prompt_choice db "Find (1) Maximum or (0) Minimum: ", 0
+    prompt_choice_len equ $ - prompt_choice
+
+    result_msg db "Result: ", 0
+    result_msg_len equ $ - result_msg
+
     numA dd 153
     numB dd 30
     numC dd 740
-    newline db 10           ; Newline character
+    newline db 10                       ; newline character
 
 section .bss
-    result_buffer resb 20   ; Buffer to store the digits
+    input_buffer resb 4                 ; buffer to store input number
+    result resb 4                       ; result number based on comparisons
+    values resb 12                      ; buffer to store three 4-byte values
+    result_buffer resb 20               ; buffer to store the digits in string
+    choice resd 1
 
 section .text
     global _start
 
 _start:
-    mov eax, [numA]
-    cmp eax, [numB]         ; compare first and second numbers
-    jg check_third_number   ; if first number is greater then second - jump
-    mov eax, [numB]
+    xor ebp, ebp
+    mov ebx, values                      ; point to the start of the values array
+.read_values:
+    cmp ebp, NUMBERS_AMOUNT              ; compare counter with the number of values
+    jge .choose_max_or_min               ; if we've read enough values, move on
 
-; compare check between 1st and 2nd number with 3rd number
-check_third_number:
-    cmp eax, [numC]
-    jg convert_to_string    ; jump if greater then 3rd number
-    mov eax, [numC]
+    mov esi, prompt_values               ; prompt for each value
+    mov edx, prompt_values_len
+    call print_string
 
-; convert number to string
-convert_to_string:
-    mov edi, result_buffer  ; Point rdi to the end of the buffer
-    add edi, 19             ; (we'll fill it from right to left)
-    mov ecx, 10             ; Divisor for extracting digits
-.convert_loop:
-    xor edx, edx       ; Clear rdx for division
-    div ecx            ; Divide rax by 10, remainder in rdx
-    add dl, '0'        ; Convert remainder to ASCII
-    dec edi            ; Move buffer pointer left
-    mov [edi], dl      ; Store the digit
-    test eax, eax      ; Check if quotient is zero
-    jnz .convert_loop  ; If not, continue loop
+    call read_int                        ; read the value
+    mov [values + ebp * 4], eax          ; store the value in the array
+    inc ebp                              ; increment counter
+    jmp .read_values                     ; repeat for the next value
 
-    ; Calculate string length
+.choose_max_or_min:
+    ; print prompt to choose logic min/max
+    mov esi, prompt_choice
+    mov edx, prompt_choice_len
+    call print_string
+    call read_int                        ; read the choice
+    mov [choice], eax
+
+test:
+    xor rax, rax
+    mov eax, [values]
+    mov [result], eax                   ; first number to result
+    mov eax, [values + 4]               ; second number to eax
+
+    ; check choice and make appropriate call
+    mov edx, [choice]
+    cmp edx, 0
+    je .find_min
+    cmp edx, 1
+    je .find_max
+    ; invalid choice
+    jmp .exit
+
+.find_min:
+    call min
+    jmp .print_result
+
+.find_max:
+    call max
+
+.print_result:
+    ; convert integer to string
+    mov eax, [result]
+    call itoa
+
+    ; calculate result number string length
     mov eax, result_buffer
     add eax, 20
-    sub eax, edi       ; eax now holds the string length
+    sub eax, edi                        ; eax now holds the string length
 
-    ; Print the number
-    mov edx, eax       ; Length of the string to print
+    ; print the number
     mov esi, edi
+    mov edx, eax                        ; length of the string to print
     mov edi, STDOUT
     mov eax, SYS_EXIT
     syscall
 
-    ; Print newline
-    mov eax, SYS_EXIT
+    ; print newline
+    mov esi, newline                    ; address of newline character
+    mov edx, 1                          ; length of 1 byte
     mov edi, STDOUT
-    mov esi, newline   ; Address of newline character
-    mov edx, 1         ; Length of 1 byte
+    mov eax, SYS_EXIT
     syscall
 
-    ; Exit program
-    mov eax, 60        ; sys_exit system call
-    xor edi, edi       ; Exit status 0
+.exit:
+    mov eax, 60                         ; sys_exit system call
+    xor edi, edi                        ; exit status 0
     syscall
+
+; ------------------ helpers --------------------
+print_string:
+    mov eax, 1                          ; sys_write
+    mov edi, 1                          ; file descriptor (stdout)
+    syscall
+ret
+
+read_int:
+    mov eax, 0                          ; sys_read
+    mov edi, 0                          ; file descriptor (stdin)
+    mov esi, input_buffer               ; buffer to store input
+    mov edx, 4                          ; number of bytes to read
+    syscall
+
+    call atoi
+ret
+
+atoi:
+    xor eax, eax                        ; initialize result
+    xor ecx, ecx                        ; initialize sign flag (0 = positive)
+
+    ; check for sign
+    mov bl, [esi]
+    cmp bl, '-'
+    jne .process_digits
+    inc esi                             ; move past the minus sign
+    inc ecx                             ; set sign flag
+
+.process_digits:
+    xor ebx, ebx
+    mov bl, [esi]                       ; get the current character
+    test bl, bl
+    jz .done                            ; if null terminator, we're done
+
+    sub bl, '0'                         ; convert ASCII to number
+    cmp bl, 9
+    ja .done                            ; if not a digit, we're done
+
+    imul eax, 10                        ; multiply current result by 10
+    add eax, ebx                        ; add the current digit
+
+    inc esi                             ; move to next character
+    jmp .process_digits
+
+.done:
+    test ecx, ecx
+    jz .exit
+    neg eax                             ; negate if sign flag is set
+.exit:
+ret
+
+; proc to find maximum value
+max:
+    cmp [result], eax                   ; compare first and second numbers
+    jg .check_third_number              ; if first number is greater then second - jump
+    mov [result], eax
+
+; compare check between 1st and 2nd number with 3rd number
+.check_third_number:
+    mov eax, [values + 8]
+    cmp [result], eax
+    jg .exit                            ; jump if greater then 3rd number
+    mov [result], eax
+.exit:
+ret
+
+; proc to find minimum value
+min:
+    cmp [result], eax                   ; compare first and second numbers
+    jl .check_third_number              ; if first number is greater then second - jump
+    mov [result], eax
+
+; compare check between 1st and 2nd number with 3rd number
+.check_third_number:
+    mov eax, [values + 8]
+    cmp [result], eax
+    jl .exit                           ; jump if greater then 3rd number
+    mov [result], eax
+.exit:
+ret
+
+; proc to convert number to string
+itoa:
+    mov edi, result_buffer  ; point edi to the end of the buffer
+
+    ; check if the number is negative
+    xor esi, esi
+    test eax, eax
+    jns .process_digits
+    inc esi             ; set negative flag
+    neg eax             ; make the number positive
+
+.process_digits:
+    add edi, 19             ; fill it from right to left
+    mov ecx, 10             ; divisor for extracting digits
+
+    .convert_loop:
+        xor edx, edx       ; clear edx for division
+        div ecx            ; divide eax by 10, remainder in edx
+        add dl, '0'        ; convert remainder to ASCII
+        dec edi            ; move buffer pointer left
+        mov [edi], dl      ; store the digit
+        test eax, eax      ; check if quotient is zero
+        jnz .convert_loop      ; if not, continue loop
+
+    ; check if the negative flag is set
+    test esi, esi
+    jz .done
+    dec edi
+    mov byte [edi], '-' ; Add minus sign to the buffer
+
+    .done:
+ret
