@@ -7,52 +7,39 @@ STDOUT equ 1
 NUMBERS_AMOUNT equ 3
 
 section .data
-    prompt_values db "Enter number: ", 0
-    prompt_values_len equ $ - prompt_values
-
     prompt_choice db "Find (1) Maximum or (0) Minimum: ", 0
     prompt_choice_len equ $ - prompt_choice
 
+    array_msg db "Array: "
+    array_msg_len equ $ - array_msg
+
+    result_msg db "Result: "
+    result_msg_len equ $ - result_msg
+
     newline db 10                       ; newline character
+    space_char db 32                    ; space character
+
+    ; task 4
+    numbers dd 89, -10, 2, 789, -55, 130
+    numbers_len equ ($ - numbers) / 4 ; calculate the length of the array
 
 section .bss
     input_buffer resb 4                 ; buffer to store input number
     result resb 4                       ; result number based on comparisons
-    values resb 12                      ; buffer to store three 4-byte values
-    result_buffer resb 20               ; buffer to store the digits in string
+    itoa_result_buffer resb 20               ; buffer to store the digits in string
     choice resd 1
 
 section .text
     global _start
 
 _start:
-    xor ebp, ebp
-    mov ebx, values                      ; point to the start of the values array
-.read_values:
-    cmp ebp, NUMBERS_AMOUNT              ; compare counter with the number of values
-    jge .choose_max_or_min               ; if we've read enough values, move on
-
-    mov esi, prompt_values               ; prompt for each value
-    mov edx, prompt_values_len
-    call print_string
-
-    call read_int                        ; read the value
-    mov [values + ebp * 4], eax          ; store the value in the array
-    inc ebp                              ; increment counter
-    jmp .read_values                     ; repeat for the next value
-
 .choose_max_or_min:
     ; print prompt to choose logic min/max
     mov esi, prompt_choice
     mov edx, prompt_choice_len
     call print_string
-    call read_int                        ; read the choice
+    call read_int
     mov [choice], eax
-
-    xor rax, rax
-    mov eax, [values]
-    mov [result], eax                   ; first number to result
-    mov eax, [values + 4]               ; second number to eax
 
     ; check choice and make appropriate call
     mov edx, [choice]
@@ -71,28 +58,18 @@ _start:
     call max
 
 .print_result:
+    call print_array
+
+    ; print result (min/max value)
+    mov esi, result_msg
+    mov edx, result_msg_len
+    call print_string
+
     ; convert integer to string
     mov eax, [result]
     call itoa
-
-    ; calculate result number string length
-    mov eax, result_buffer
-    add eax, 20
-    sub eax, edi                        ; eax now holds the string length
-
-    ; print the number
-    mov esi, edi
-    mov edx, eax                        ; length of the string to print
-    mov edi, STDOUT
-    mov eax, SYS_EXIT
-    syscall
-
-    ; print newline
-    mov esi, newline                    ; address of newline character
-    mov edx, 1                          ; length of 1 byte
-    mov edi, STDOUT
-    mov eax, SYS_EXIT
-    syscall
+    call print_int
+    call print_newline
 
 .exit:
     mov eax, 60                         ; sys_exit system call
@@ -101,8 +78,8 @@ _start:
 
 ; ------------------ helpers --------------------
 print_string:
-    mov eax, 1                          ; sys_write
-    mov edi, 1                          ; file descriptor (stdout)
+    mov eax, STDOUT                          ; sys_write
+    mov edi, SYS_EXIT                          ; file descriptor (stdout)
     syscall
 ret
 
@@ -152,37 +129,48 @@ ret
 
 ; proc to find maximum value
 max:
-    cmp [result], eax                   ; compare first and second numbers
-    jg .check_third_number              ; if first number is greater then second - jump
-    mov [result], eax
+    xor rax, rax
+    mov eax, [numbers]
+    mov ecx, numbers_len - 1                ; size of array for loop counter
+    mov esi, 1                          ; current index of array
 
-; compare check between 1st and 2nd number with 3rd number
-.check_third_number:
-    mov eax, [values + 8]
-    cmp [result], eax
-    jg .exit                            ; jump if greater then 3rd number
+    ; loop through the array and compare elements
+    .loop_array:
+        mov edx, [numbers + esi * 4]    ; second number to eax
+        cmp edx, eax                    ; compare current result with number by index
+        jle .next_iteration             ; next iteration if current result is bigger/equal
+        mov eax, edx
+
+        .next_iteration:
+            inc esi
+        loop .loop_array
+
     mov [result], eax
-.exit:
 ret
 
 ; proc to find minimum value
 min:
-    cmp [result], eax                   ; compare first and second numbers
-    jl .check_third_number              ; if first number is greater then second - jump
-    mov [result], eax
+    mov eax, [numbers]
+    mov ecx, numbers_len - 1                ; size of array for loop counter
+    mov esi, 1                          ; current index of array
 
-; compare check between 1st and 2nd number with 3rd number
-.check_third_number:
-    mov eax, [values + 8]
-    cmp [result], eax
-    jl .exit                           ; jump if greater then 3rd number
+    ; loop through the array and compare elements
+    .loop_array:
+        mov edx, [numbers + esi * 4]    ; second number to eax
+        cmp edx, eax                    ; compare current result with number by index
+        jge .next_iteration             ; next iteration if current result is less/equal
+        mov eax, edx
+
+        .next_iteration:
+            inc esi
+        loop .loop_array
+
     mov [result], eax
-.exit:
 ret
 
 ; proc to convert number to string
 itoa:
-    mov edi, result_buffer  ; point edi to the end of the buffer
+    mov edi, itoa_result_buffer  ; point edi to the end of the buffer
 
     ; check if the number is negative
     xor esi, esi
@@ -211,4 +199,53 @@ itoa:
     mov byte [edi], '-' ; Add minus sign to the buffer
 
     .done:
+ret
+
+print_newline:
+    mov esi, newline                    ; address of newline character
+    mov edx, 1                          ; length of 1 byte
+    mov edi, STDOUT
+    mov eax, SYS_EXIT
+    syscall
+ret
+
+print_int:
+    mov edx, itoa_result_buffer
+    add edx, 20
+    sub edx, edi                    ; edx now holds the string length
+
+    mov esi, edi
+    mov edi, STDOUT
+    mov eax, SYS_EXIT
+    syscall
+ret
+
+print_array:
+    mov esi, array_msg
+    mov edx, array_msg_len
+    call print_string
+
+    xor rcx, rcx
+    mov ecx, numbers_len                ; size of array for loop counter
+    mov ebp, 0                          ; current index of array
+
+    .loop_array:
+        push rcx                        ; save loop counter on stack
+        mov eax, [numbers + ebp * 4]    ; second number to eax
+        call itoa
+        call print_int
+
+        ; print space
+        mov esi, space_char                    ; address of newline character
+        mov edx, 1                             ; length of 1 byte
+        mov edi, STDOUT
+        mov eax, SYS_EXIT
+        syscall
+
+        inc ebp
+        pop rcx                                ; get loop counter from stack
+
+        loop .loop_array
+
+    call print_newline
 ret
