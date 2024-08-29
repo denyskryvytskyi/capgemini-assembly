@@ -17,7 +17,7 @@ section .data
     newline db 10                       ; newline character
     space_char db 32                    ; space character
 
-    numbers dd 89, -10, 2, 789, -55, 130
+    numbers dd 89, -10, 2, 789, -55, 130, -6, 3, 900, 78, 5, 5700
     numbers_len equ ($ - numbers) / 4 ; calculate the length of the array
 
 section .bss
@@ -30,7 +30,6 @@ section .text
     global _start
 
 _start:
-.choose_max_or_min:
     ; print prompt to choose logic min/max
     mov esi, prompt_choice
     mov edx, prompt_choice_len
@@ -126,42 +125,97 @@ ret
 
 ; proc to find maximum value
 max:
-    xor rax, rax
+    xor eax, eax
     mov eax, [numbers]
-    mov ecx, numbers_len - 1                ; size of array for loop counter
-    mov esi, 1                          ; current index of array
+    mov ecx, (numbers_len - 1) / 4          ; loop counter with skip of the first element
+
+    cmp ecx, 0                              ; if array has less then 4 elements - skip unrolling
+    je .process_remainder
+
+    mov esi, numbers + 4                    ; current array pointer
 
     ; loop through the array and compare elements
-    .loop_array:
-        mov edx, [numbers + esi * 4]    ; second number to eax
-        cmp edx, eax                    ; compare current result with number by index
-        jle .next_iteration             ; next iteration if current result is bigger/equal
-        mov eax, edx
+.loop_array:
+        mov ebx, [esi]
+        cmp eax, ebx            ; set flag
+        cmovl eax, ebx          ; move by flag
 
-        .next_iteration:
-            inc esi
+        mov ebx, [esi + 4]
+        cmp eax, ebx
+        cmovl eax, ebx
+
+        mov ebx, [esi + 8]
+        cmp eax, ebx
+        cmovl eax, ebx
+
+        mov ebx, [esi + 12]
+        cmp eax, ebx
+        cmovl eax, ebx
+
+        add esi, 16             ; move pointer to the next group of four numbers
         loop .loop_array
 
+.process_remainder:
+    mov ecx, numbers_len - 1
+    and ecx, 3  ; Get remainder when divided by 4
+    jz .done
+
+    .remainder_loop:
+        mov ebx, [esi]
+        cmp eax, ebx
+        cmovl eax, ebx
+        add esi, 4
+    loop .remainder_loop
+
+.done:
     mov [result], eax
 ret
 
 ; proc to find minimum value
 min:
+    xor eax, eax
     mov eax, [numbers]
-    mov ecx, numbers_len - 1                ; size of array for loop counter
-    mov esi, 1                          ; current index of array
+    mov ecx, (numbers_len - 1) / 4          ; loop counter with skip of the first element
+
+    cmp ecx, 0                              ; if array has less then 4 elements - skip unrolling
+    je .process_remainder
+
+    mov esi, numbers + 4                    ; current array pointer
 
     ; loop through the array and compare elements
-    .loop_array:
-        mov edx, [numbers + esi * 4]    ; second number to eax
-        cmp edx, eax                    ; compare current result with number by index
-        jge .next_iteration             ; next iteration if current result is less/equal
-        mov eax, edx
+.loop_array:
+        mov ebx, [esi]
+        cmp eax, ebx            ; set flag
+        cmovg eax, ebx          ; move by flag
 
-        .next_iteration:
-            inc esi
+        mov ebx, [esi + 4]
+        cmp eax, ebx
+        cmovg eax, ebx
+
+        mov ebx, [esi + 8]
+        cmp eax, ebx
+        cmovg eax, ebx
+
+        mov ebx, [esi + 12]
+        cmp eax, ebx
+        cmovg eax, ebx
+
+        add esi, 16             ; move pointer to the next group of four numbers
         loop .loop_array
 
+.process_remainder:
+    mov ecx, numbers_len - 1
+    and ecx, 3  ; Get remainder when divided by 4
+    jz .done
+
+    .remainder_loop:
+        mov ebx, [esi]
+        cmp eax, ebx
+        cmovg eax, ebx
+        add esi, 4
+    loop .remainder_loop
+
+.done:
     mov [result], eax
 ret
 
@@ -222,7 +276,7 @@ print_array:
     mov edx, array_msg_len
     call print_string
 
-    xor rcx, rcx
+    xor ecx, ecx
     mov ecx, numbers_len                ; size of array for loop counter
     mov ebp, 0                          ; current index of array
 
