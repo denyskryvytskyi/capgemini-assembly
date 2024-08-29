@@ -13,8 +13,11 @@ section .data
     prompt_number db "Enter number: ", 0
     prompt_number_len equ $ - prompt_number
 
-    result_msg db "Factorial: "
-    result_msg_len equ $ - result_msg
+    result_loop_msg db "Factorial (loop): "
+    result_loop_msg_len equ $ - result_loop_msg
+
+    result_recursion_msg db "Factorial (recursion): "
+    result_recursion_msg_len equ $ - result_recursion_msg
 
     overflow_msg db "Overflow detected!", 0xa
     overflow_msg_len equ $ - overflow_msg
@@ -23,13 +26,14 @@ section .data
     space_char db 32                    ; space character
 
 section .bss
-    input_buffer resd 1                 ; buffer to store input number
-    result resd 1                       ; factorial of number
+    input_buffer resd MAX_NUMBERS       ; buffer to store input number
+    result_loop resb 8                  ; factorial of number calculated by loop
+    result_recursed resb 8              ; factorial of number calculated by recursion
     itoa_result_buffer resb 20          ; buffer to store the digits in string
-    input_number resd 1
+    input_number resb 8
 
     ; for sequence
-    numbers resb MAX_NUMBERS * 8                    ; 20 8-byte numbers
+    numbers resb MAX_NUMBERS * 8        ; 20 8-byte numbers
 
 section .text
     global _start
@@ -38,29 +42,45 @@ _start:
     mov rsi, prompt_number
     mov rdx, prompt_number_len
     call print_string
-    call read_int
-    mov [input_number], rax
 
-    ; calculate factorial
+    ; now we need read a sequence of integers
+    call read_int
+
+    ; calculate factorial with loop
     mov rbx, [input_number] ; current processing number
     mov rax, 1
-
-    ;call factorial_loop    ; loop version
-    call factorial_recursed ; recusrion version
+    call factorial_loop
     jo .overflow_detected
+    mov [result_loop], rax
 
-    mov [result], rax
+    ; calc with recursion
+    mov rbx, [input_number] ; current processing number
+    mov rax, 1
+    call factorial_recursed
+    jo .overflow_detected
+    mov [result_recursed], rax
 
 .print_result:
     ;call print_array
 
-    ; print result (min/max value)
-    mov rsi, result_msg
-    mov rdx, result_msg_len
+    ; print loop factorial
+    mov rsi, result_loop_msg
+    mov rdx, result_loop_msg_len
     call print_string
 
     ; convert integer to string
-    mov rax, [result]
+    mov rax, [result_loop]
+    call itoa
+    call print_int
+    call print_newline
+
+    ; print recursion factorial
+    mov rsi, result_recursion_msg
+    mov rdx, result_recursion_msg_len
+    call print_string
+
+    ; convert integer to string
+    mov rax, [result_recursed]
     call itoa
     call print_int
     call print_newline
@@ -125,6 +145,8 @@ atoi:
     jz .exit
     neg rax                             ; negate if sign flag is set
 .exit:
+
+    mov [input_number], rax
 ret
 
 ; proc to convert number to string
@@ -144,7 +166,7 @@ itoa:
 
     .convert_loop:
         xor rdx, rdx       ; clear edx for division
-        div rcx            ; divide eax by 10, remainder in edx
+        div rcx            ; divide rax by 10, remainder in edx
         add dl, '0'        ; convert remainder to ASCII
         dec rdi            ; move buffer pointer left
         mov [rdi], dl      ; store the digit
@@ -190,7 +212,7 @@ print_array:
 
     .loop_array:
         push rcx                        ; save loop counter on stack
-        mov rax, [numbers + rbp * 4]    ; second number to eax
+        mov rax, [numbers + rbp * 4]    ; second number to rax
         call itoa
         call print_int
 
@@ -212,12 +234,12 @@ ret
 factorial_loop:
 mov rcx, [input_number] ; loop counter
 .loop_fact:
-        cmp rbx, 1
-        jle .done
-        mul rbx
-        jo .done
-        dec rbx
-        loop .loop_fact
+    cmp rbx, 1
+    jle .done
+    mul rbx
+    jo .done
+    dec rbx
+    loop .loop_fact
 .done:
 ret
 
@@ -230,4 +252,5 @@ factorial_recursed:
     jo .overflow
     dec rbx
     call factorial_recursed
+.overflow:
 ret
