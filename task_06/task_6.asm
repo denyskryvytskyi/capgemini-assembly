@@ -22,6 +22,9 @@ section .data
     overflow_msg db "Overflow detected!", 0xa
     overflow_msg_len equ $ - overflow_msg
 
+    negative_msg db "Negative number!", 0xa
+    negative_msg_len equ $ - negative_msg
+
     newline db 10                       ; newline character
     space_char db 32                    ; space character
 
@@ -33,7 +36,10 @@ section .bss
     input_number resb 8
 
     ; for sequence
+    input_array_size resb 4             ; size of input array
     numbers resb MAX_NUMBERS * 8        ; 20 8-byte numbers
+    numbers_result_loop resb MAX_NUMBERS * 8                  ; factorial of number calculated by loop
+    numbers_result_recursed resb MAX_NUMBERS * 8              ; factorial of number calculated by recursion
 
 section .text
     global _start
@@ -44,51 +50,67 @@ _start:
     call print_string
 
     ; now we need read a sequence of integers
-    call read_int
+    call read_int_sequence
 
     ; calculate factorial with loop
-    mov rbx, [input_number] ; current processing number
-    mov rax, 1
-    call factorial_loop
-    jo .overflow_detected
-    mov [result_loop], rax
+    mov ecx, [input_array_size]                 ; size of array is loop counter
+    mov rsi, numbers                            ; pointer to number array
+    mov rdi, numbers_result_loop                ; pointer to factorial array
 
-    ; calc with recursion
-    mov rbx, [input_number] ; current processing number
-    mov rax, 1
-    call factorial_recursed
-    jo .overflow_detected
-    mov [result_recursed], rax
+    .loop_array_l:
+        mov rbx, [rsi]
+        mov rax, 1
+        call factorial_loop
+        jo .overflow_detected
+        mov [rdi], rax
+        ; move pointers to the next elements
+        add rsi, 8
+        add rdi, 8
+        loop .loop_array_l
+
+    ; calculate factorial with recursion
+    mov ecx, [input_array_size]                 ; size of array is loop counter
+    mov rsi, numbers                            ; pointer to number array
+    mov rdi, numbers_result_recursed            ; pointer to factorial array
+
+    .loop_array_r:
+        mov rbx, [rsi]
+        mov rax, 1
+        call factorial_recursed
+        jo .overflow_detected
+        mov [rdi], rax
+        ; move pointers to the next elements
+        add rsi, 8
+        add rdi, 8
+        loop .loop_array_r
 
 .print_result:
-    ;call print_array
-
     ; print loop factorial
     mov rsi, result_loop_msg
     mov rdx, result_loop_msg_len
     call print_string
-
-    ; convert integer to string
-    mov rax, [result_loop]
-    call itoa
-    call print_int
-    call print_newline
+    ; print array of results
+    mov rbx, numbers_result_loop ; set pointer
+    call print_array
 
     ; print recursion factorial
     mov rsi, result_recursion_msg
     mov rdx, result_recursion_msg_len
     call print_string
-
-    ; convert integer to string
-    mov rax, [result_recursed]
-    call itoa
-    call print_int
-    call print_newline
+    ; print array of results
+    mov rbx, numbers_result_recursed ; set pointer
+    call print_array
     jmp .exit
 
 .overflow_detected:
     mov rsi, overflow_msg
     mov rdx, overflow_msg_len
+    call print_string
+    jmp .exit
+
+.negative:
+    mov rsi, negative_msg
+    mov rdx, negative_msg_len
     call print_string
 
 .exit:
@@ -98,37 +120,52 @@ _start:
 
 ; ------------------ helpers --------------------
 print_string:
+    push rcx
     mov rax, SYS_EXIT
     mov rdi, STDOUT
     syscall
+    pop rcx
 ret
 
-read_int:
+read_int_sequence:
     mov rax, 0                          ; sys_read
     mov rdi, 0                          ; file descriptor (stdin)
     mov rsi, input_buffer               ; buffer to store input
-    mov rdx, 4                          ; number of bytes to read
+    mov rdx, 160                        ; number of bytes to read
     syscall
 
+    mov bl, [rsi]
+    mov ebp, numbers                    ; pointer to array
+    mov edi, [input_array_size]
+.seq_to_i:                              ; do while not null terminator
     call atoi
+    inc edi
+    test bl, bl
+    jz .done                            ; if null terminator
+    cmp bl, 32
+    jne .done                           ; if space delimiter
+    inc rsi
+    add ebp, 8                          ; move pointer to the next element
+    jmp .seq_to_i
+
+.done:
+    mov [input_array_size], edi
 ret
 
 atoi:
     xor rax, rax                        ; initialize result
-    xor rcx, rcx                        ; initialize sign flag (0 = positive)
-
-    ; check for sign
-    mov bl, [rsi]
-    cmp bl, '-'
-    jne .process_digits
-    inc rsi                             ; move past the minus sign
-    inc rcx                             ; set sign flag
 
 .process_digits:
     xor rbx, rbx
     mov bl, [rsi]                       ; get the current character
     test bl, bl
     jz .done                            ; if null terminator, we're done
+
+    cmp bl, '-'
+    je _start.negative
+
+    cmp bl, [space_char]
+    je .done
 
     sub bl, '0'                         ; convert ASCII to number
     cmp bl, 9
@@ -141,16 +178,13 @@ atoi:
     jmp .process_digits
 
 .done:
-    test rcx, rcx
-    jz .exit
-    neg rax                             ; negate if sign flag is set
-.exit:
-
-    mov [input_number], rax
+    mov [ebp], rax
 ret
 
 ; proc to convert number to string
 itoa:
+    push rcx
+
     mov rdi, itoa_result_buffer  ; point edi to the end of the buffer
 
     ; check if the number is negative
@@ -180,6 +214,7 @@ itoa:
     mov byte [rdi], '-' ; Add minus sign to the buffer
 
     .done:
+    pop rcx
 ret
 
 print_newline:
@@ -191,6 +226,8 @@ print_newline:
 ret
 
 print_int:
+    push rcx
+
     mov rdx, itoa_result_buffer
     add rdx, 20
     sub rdx, rdi                    ; edx now holds the string length
@@ -199,32 +236,25 @@ print_int:
     mov rdi, STDOUT
     mov rax, SYS_EXIT
     syscall
+
+    pop rcx
 ret
 
 print_array:
-    mov rsi, array_msg
-    mov rdx, array_msg_len
-    call print_string
-
-    xor rcx, rcx
-    mov rcx, MAX_NUMBERS                ; size of array for loop counter
-    mov rbp, 0                          ; current index of array
-
+    mov ecx, [input_array_size]                ; size of array for loop counter
     .loop_array:
-        push rcx                        ; save loop counter on stack
-        mov rax, [numbers + rbp * 4]    ; second number to rax
+        ;push rcx                        ; save loop counter on stack
+        mov rax, [rbx]                  ; second number to rax
         call itoa
         call print_int
 
         ; print space
-        mov rsi, space_char                    ; address of newline character
-        mov rdx, 1                             ; length of 1 byte
-        mov rdi, STDOUT
-        mov rax, SYS_EXIT
-        syscall
+        mov rsi, space_char
+        mov rdx, 1
+        call print_string
 
-        inc rbp
-        pop rcx                                ; get loop counter from stack
+        add rbx, 8                      ; move pointer to the next element
+        ;pop rcx                         ; get loop counter from stack
 
         loop .loop_array
 
@@ -232,6 +262,9 @@ print_array:
 ret
 
 factorial_loop:
+push rcx
+push rsi
+push rdi
 mov rcx, [input_number] ; loop counter
 .loop_fact:
     cmp rbx, 1
@@ -241,6 +274,9 @@ mov rcx, [input_number] ; loop counter
     dec rbx
     loop .loop_fact
 .done:
+pop rdi
+pop rsi
+pop rcx
 ret
 
 factorial_recursed:
