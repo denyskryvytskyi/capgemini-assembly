@@ -100,27 +100,27 @@ atoi:
     inc esi                             ; move past the minus sign
     inc ecx                             ; set sign flag
 
-.process_digits:
-    xor ebx, ebx
-    mov bl, [esi]                       ; get the current character
-    test bl, bl
-    jz .done                            ; if null terminator, we're done
+    .process_digits:
+        xor ebx, ebx
+        mov bl, [esi]                       ; get the current character
+        test bl, bl
+        jz .done                            ; if null terminator, we're done
 
-    sub bl, '0'                         ; convert ASCII to number
-    cmp bl, 9
-    ja .done                            ; if not a digit, we're done
+        sub bl, '0'                         ; convert ASCII to number
+        cmp bl, 9
+        ja .done                            ; if not a digit, we're done
 
-    imul eax, 10                        ; multiply current result by 10
-    add eax, ebx                        ; add the current digit
+        imul eax, 10                        ; multiply current result by 10
+        add eax, ebx                        ; add the current digit
 
-    inc esi                             ; move to next character
-    jmp .process_digits
+        inc esi                             ; move to next character
+        jmp .process_digits
 
-.done:
-    test ecx, ecx
-    jz .exit
-    neg eax                             ; negate if sign flag is set
-.exit:
+    .done:
+        test ecx, ecx
+        jz .exit
+        neg eax                             ; negate if sign flag is set
+    .exit:
 ret
 
 ; proc to find maximum value

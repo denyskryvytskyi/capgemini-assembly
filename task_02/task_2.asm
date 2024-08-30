@@ -4,7 +4,7 @@ SYS_WRITE equ 4
 STDIN equ 0
 STDOUT equ 1
 ASCII_A equ 'a'
-%define SYSCALL 0x80
+SYSCALL equ 0x80
 
 section .data
     msg db 'Capgemini task 2', 0xa

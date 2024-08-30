@@ -249,14 +249,35 @@ factorial_loop:
     push rdi
 
     mov rcx, rbx      ; loop counter
+    shr ecx, 2        ; divide by 4 to find unrolled loop counter
+
+    ; unrolled loop
     .loop_fact:
+        cmp rcx, 0
+        je .remainder
+        mul rbx
+        jo .done
+        dec rbx
+        mul rbx
+        jo .done
+        dec rbx
+        mul rbx
+        jo .done
+        dec rbx
+        mul rbx
+        jo .done
+        dec rbx
+        loop .loop_fact
+
+    mov rcx, rbx
+    .remainder:
         cmp rbx, 1
         jle .done
         mul rbx
         jo .done
         dec rbx
-        loop .loop_fact
-    
+        loop .remainder
+
     .done:
         pop rdi
         pop rsi
@@ -269,8 +290,8 @@ factorial_recursed:
     ret
     .next_number:
         mul rbx
-        jo .overflow
+        jo .exit
         dec rbx
         call factorial_recursed
-    .overflow:
+.exit:
 ret
