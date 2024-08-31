@@ -10,11 +10,14 @@ section .data
     prompt_number db "Enter number: ", 0
     prompt_number_len equ $ - prompt_number
 
-    prompt_operation db "Choose operation: (+) addition, (-) subtraction, (*) multiplication, (/) division: ", 0
+    prompt_operation db "Choose operation (+) addition, (-) subtraction, (*) multiplication, (/) division: ", 0
     prompt_operation_len equ $ - prompt_operation
 
     result_msg db "Result: "
     result_msg_len equ $ - result_msg
+
+    repeat_msg db "Do you want another calculation (1) Yes, (0) No: "
+    repeat_msg_len equ $ - repeat_msg
 
     wrong_op_msg db "Wrong operation input. Try again."
     wrong_op_msg_len equ $ - wrong_op_msg
@@ -112,6 +115,14 @@ _start:
         call itoa
         call print_int
         call print_newline
+
+        ; repeat
+        mov esi, repeat_msg
+        mov edx, repeat_msg_len
+        call print_string
+        call read_int
+        cmp eax, 1
+        je _start
         jmp .exit
 
     .wrong_op_input:
