@@ -1,3 +1,15 @@
+; TASK: Simple Calculator
+; IMPLEMENTED:
+;   - addition, subtraction of signed integer values with overflow detection
+;   - multiplication of signed integers
+;   - division for unsigned integers with division by zero check
+;   - prompts and results output
+;   - repeat calculation by user choice
+; TODO:
+;   - multiplication for big range integers with format RDX:RDA
+;   - division of signed integers with sign flag processing correctly
+;   - float numbers support
+
 SYS_EXIT equ 60
 SYS_READ equ 0
 SYS_WRITE equ 1

@@ -1,10 +1,4 @@
 ; TASK: Memory Segmentation by Accessing Data from Different Segments
-; NOTE:
-;   - DS, ES already points to the appropriate segments in Linux
-; IMPLEMENTED:
-;   - 
-; TODO:
-;   - 
 
 SYS_EXIT equ 60
 SYS_READ equ 0
