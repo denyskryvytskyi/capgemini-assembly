@@ -34,7 +34,6 @@ section .data
     overflow_error_msg_len equ $ - overflow_error_msg
 
     newline_ascii db 0xa                   ; newline character
-    space_ascii db 0x20                    ; space character
 
 section .bss
     input_buffer resb MAX_EXPERESSION_SIZE
