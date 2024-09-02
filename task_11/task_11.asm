@@ -1,11 +1,10 @@
 ; TASK: Evaluate an Arithmetical Expression Using Stack Operations
 ; IMPLEMENTED:
-;   - complex multidigit multinumber expression evaluation
+;   - complex multidigit multinumber (32-bit integer) expression evaluation
 ;   - negative numbers processing
 ;   - syntax errors handling
 ;   - overflow handling
 ; TODO (possible improvements):
-;   - better input validation
 ;   - multiplication and division operations
 ;   - brackets and operations priorities
 
@@ -58,9 +57,9 @@ _start:
     ; expression processing
     call evaluate_expression
 
-    cmp eax, 1
+    cmp eax, SYS_ERROR_CODE
     je .syntax_error
-    cmp eax, 2
+    cmp eax, OVERFLOW_ERROR_CODE
     je .overflow_error
 
     ; print result
@@ -144,6 +143,8 @@ evaluate_expression:
         jg .syntax_error
 
         call read_number
+        cmp eax, OVERFLOW_ERROR_CODE
+        je .overflow
 
         ; check if we had operator
         mov bl, [last_op]
@@ -171,12 +172,18 @@ evaluate_expression:
         loop .loop_expr
 
     .done:
+        ; check if we have unused operator
+        mov bl, [last_op]
+        cmp bl, 0
+        jne .syntax_error
         call stack_pop
         mov [result], edi
     ret
 
     .syntax_error:
         mov eax, SYS_ERROR_CODE          ; error code
+
+    .overflow:
 ret
 
 read_number:
@@ -197,7 +204,9 @@ read_number:
         sub bl, '0'                    ; convert ASCII to number
 
         imul edi, 10               ; multiply current result by 10
+        jo .overflow
         add edi, ebx               ; add the current digit
+        jo .overflow
         jmp .loop_read_num
 
     .check_negative:
@@ -210,9 +219,14 @@ read_number:
         mov byte [last_op], 0
         jne .done
         neg edi
+        jo .overflow
 
     .done:
-        call stack_push                   ; push parsed number on stack
+        call stack_push            ; push parsed number on stack
+        ret
+
+    .overflow:
+        mov eax, OVERFLOW_ERROR_CODE
 ret
 
 add:
