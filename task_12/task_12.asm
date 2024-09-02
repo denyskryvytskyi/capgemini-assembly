@@ -20,6 +20,7 @@ ARR1_SIZE_BYTES equ 56
 ARR2_SIZE equ 5
 ARR2_SIZE_BYTES equ 40
 
+ALLOC_ERROR_CODE equ -1
 
 section .data
     result_msg db "Result: "
@@ -39,6 +40,9 @@ section .data
 
     arr2_unique_msg db "Array 2 unique elements: "
     arr2_unique_msg_len equ $ - arr2_unique_msg
+
+    alloc_failed_msg db "Allocation failed!"
+    alloc_failed_msg_len equ $ - alloc_failed_msg
 
     newline_ascii db 0xa                   ; newline character
     space_ascii db 0x20                    ; space character
@@ -69,30 +73,40 @@ _start:
     ; allocate arr1
     mov rbx, ARR1_SIZE_BYTES
     call alloc
+    cmp rax, ALLOC_ERROR_CODE
+    je .alloc_failed
     sub rax, rbx
     mov [arr1_addr], rax      ; move to the start of allocated block
     
     ; allocate arr2
     mov rbx, ARR2_SIZE_BYTES
     call alloc
+    cmp rax, ALLOC_ERROR_CODE
+    je .alloc_failed
     sub rax, rbx
     mov [arr2_addr], rax      ; move to the start of allocated block
 
     ; preallocate for common elements array (with the size of the smallest array)
     mov rbx, ARR2_SIZE_BYTES
     call alloc
+    cmp rax, ALLOC_ERROR_CODE
+    je .alloc_failed
     sub rax, rbx
     mov [result_common_addr], rax
 
     ; preallocate for unique elements in arr1
     mov rbx, ARR2_SIZE_BYTES
     call alloc
+    cmp rax, ALLOC_ERROR_CODE
+    je .alloc_failed
     sub rax, rbx
     mov [result_arr1_only_addr], rax
 
     ; preallocate for unique elements in arr1
     mov rbx, ARR2_SIZE_BYTES
     call alloc
+    cmp rax, ALLOC_ERROR_CODE
+    je .alloc_failed
     sub rax, rbx
     mov [result_arr2_only_addr], rax
 
@@ -111,20 +125,20 @@ _start:
     call find_common
 
     ; unique elements of the arr1
-    mov rcx, ARR1_SIZE              ; outer loop counter - smallest array size
-    mov rsi, [arr1_addr]            ; pointer to the first arr
-    mov rax, [result_arr1_only_addr]   ; pointer to common elements array
-    mov rdi, [arr2_addr]        ; pointer to the second arr
-    mov rbp, ARR2_SIZE          ; inner loop counter
+    mov rcx, ARR1_SIZE                  ; outer loop counter - smallest array size
+    mov rsi, [arr1_addr]                ; pointer to the first arr
+    mov rax, [result_arr1_only_addr]    ; pointer to common elements array
+    mov rdi, [arr2_addr]                ; pointer to the second arr
+    mov rbp, ARR2_SIZE                  ; inner loop counter
     call find_unique
     mov [result_arr1_only_size], rdx
 
     ; unique elements of the arr2
-    mov rcx, ARR2_SIZE              ; outer loop counter - smallest array size
-    mov rsi, [arr2_addr]            ; pointer to the second arr
-    mov rax, [result_arr2_only_addr]   ; pointer to common elements array
-    mov rdi, [arr1_addr]        ; pointer to the first arr
-    mov rbp, ARR1_SIZE          ; inner loop counter
+    mov rcx, ARR2_SIZE                  ; outer loop counter - smallest array size
+    mov rsi, [arr2_addr]                ; pointer to the second arr
+    mov rax, [result_arr2_only_addr]    ; pointer to common elements array
+    mov rdi, [arr1_addr]                ; pointer to the first arr
+    mov rbp, ARR1_SIZE                  ; inner loop counter
     call find_unique
     mov [result_arr2_only_size], rdx
 
@@ -194,11 +208,18 @@ _start:
     mov rsi, [arr1_addr]
     mov rbx, ARR1_SIZE_BYTES
     call free
+    jmp .exit
 
-    ; exit
-    mov rax, SYS_EXIT                   ; sys_exit system call
-    xor rdi, rdi                        ; exit status 0
-    syscall
+    .alloc_failed:
+        mov esi, alloc_failed_msg
+        mov edx, alloc_failed_msg_len
+        call print_string
+        call print_newline
+
+    .exit:
+        mov rax, SYS_EXIT                   ; sys_exit system call
+        xor rdi, rdi                        ; exit status 0
+        syscall
 
 ; ------------------ helpers --------------------
 alloc:
