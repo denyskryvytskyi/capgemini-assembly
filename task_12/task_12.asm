@@ -1,8 +1,8 @@
 ; TASK: Dynamic Memory Allocation and Array Operations
 ; IMPLEMENTED:
-;   - 
+;   - contigious allocation and reverse deallocation
 ; TODO (possible improvements):
-;   - 
+;   - usage of C malloc function for more complex and useful allocation
 
 SYS_EXIT equ 60
 SYS_READ equ 0
@@ -15,7 +15,11 @@ MAX_EXPERESSION_SIZE equ 100 ; 100 characters string is max
 STACK_SIZE equ 256           ; 256 4-byte integers
 
 ARR1_SIZE equ 7
+ARR1_SIZE_BYTES equ 56
+
 ARR2_SIZE equ 5
+ARR2_SIZE_BYTES equ 40
+
 
 section .data
     result_msg db "Result: "
@@ -44,7 +48,6 @@ section .data
 
 section .bss
     ; reserve memory to store addresses of dynamically allocated memory blocks
-    current_brk resq 1
     arr1_addr resq 1
     arr2_addr resq 1
     result_common_addr resq 1       ; common elemenets
@@ -62,41 +65,47 @@ section .text
     global _start
 
 _start:
-    mov rax, 0
-    mov [current_brk], rax
+    xor rax, rax
     ; allocate arr1
-    mov rbx, ARR1_SIZE * 8
+    mov rbx, ARR1_SIZE_BYTES
     call alloc
     sub rax, rbx
     mov [arr1_addr], rax      ; move to the start of allocated block
     
     ; allocate arr2
-    mov rbx, ARR2_SIZE * 8
+    mov rbx, ARR2_SIZE_BYTES
     call alloc
     sub rax, rbx
     mov [arr2_addr], rax      ; move to the start of allocated block
 
     ; preallocate for common elements array (with the size of the smallest array)
-    mov rbx, ARR2_SIZE * 8
+    mov rbx, ARR2_SIZE_BYTES
     call alloc
     sub rax, rbx
     mov [result_common_addr], rax
 
     ; preallocate for unique elements in arr1
-    mov rbx, ARR2_SIZE * 8
+    mov rbx, ARR2_SIZE_BYTES
     call alloc
     sub rax, rbx
     mov [result_arr1_only_addr], rax
 
     ; preallocate for unique elements in arr1
-    mov rbx, ARR2_SIZE * 8
+    mov rbx, ARR2_SIZE_BYTES
     call alloc
     sub rax, rbx
     mov [result_arr2_only_addr], rax
 
     ; populate with numbers
-    call populate_arr_1
-    call populate_arr_2
+    mov rcx, ARR1_SIZE
+    mov rsi, arr_1_values
+    mov rdi, [arr1_addr]
+    call populate_arr
+
+    mov rcx, ARR2_SIZE
+    mov rsi, arr_2_values
+    mov rdi, [arr2_addr]
+    call populate_arr
 
     ; finc common elements
     call find_common
@@ -165,6 +174,27 @@ _start:
     mov rax, [result_arr2_only_size]
     call print_array
 
+    ; deallocate memory blocks
+    mov rsi, [result_arr2_only_addr]
+    mov rbx, ARR2_SIZE_BYTES
+    call free
+
+    mov rsi, [result_arr1_only_addr]
+    mov rbx, ARR2_SIZE_BYTES
+    call free
+
+    mov rsi, [result_common_addr]
+    mov rbx, ARR2_SIZE_BYTES
+    call free
+
+    mov rsi, [arr2_addr]
+    mov rbx, ARR2_SIZE_BYTES
+    call free
+
+    mov rsi, [arr1_addr]
+    mov rbx, ARR1_SIZE_BYTES
+    call free
+
     ; exit
     mov rax, SYS_EXIT                   ; sys_exit system call
     xor rdi, rdi                        ; exit status 0
@@ -172,38 +202,35 @@ _start:
 
 ; ------------------ helpers --------------------
 alloc:
-    push rbx
-
+    ; arguments:
+    ; rbx - size of memory to allocate in bytes
     mov rax, SYS_BRK        ; sys_brk syscall
-    mov rdi, 0  ; initial break point
+    xor rdi, rdi              ; initial break point
     syscall
 
-    mov rdi, rax            ; store the current break
-    mov rsi, rbx            ; length of memory block
+    ; now rax contains current program break
+
+    mov rdi, rax            ; store the curernt program break
+    add rdi, rbx            ; new break point by size rbx
     mov rax, SYS_BRK        ; sys_brk syscall
-    add rdi, rsi            ; new break point
     syscall
-
-    mov [current_brk], rax
-    pop rbx
 ret
 
-populate_arr_1:
-    mov rcx, ARR1_SIZE
-    mov rsi, arr_1_values
-    mov rdi, [arr1_addr]
-    .populate:
-        mov rbx, [rsi]
-        mov [rdi], rbx
-        add rdi, 8
-        add rsi, 8
-        loop .populate
+free:
+    ; arguments:
+    ; rsi - address of the allocated memory
+    ; rbx - size of deallocation memory
+    mov rdi, rsi     ; address of memory block
+    sub rdi, rbx     ; move break point to the beginning of the block
+    mov rax, SYS_BRK ; sys_brk syscall
+    syscall
 ret
 
-populate_arr_2:
-    mov rcx, ARR2_SIZE
-    mov rsi, arr_2_values
-    mov rdi, [arr2_addr]
+populate_arr:
+    ; arguments:
+    ; rsi - pointer on values array
+    ; rcx - size of array
+    ; rdi - pointer to dynamicly allocated array
     .populate:
         mov rbx, [rsi]
         mov [rdi], rbx
@@ -216,7 +243,7 @@ find_common:
     mov rcx, ARR2_SIZE              ; outer loop counter - smallest array size
     mov rsi, [arr2_addr]            ; pointer to the second arr
     mov rax, [result_common_addr]   ; pointer to common elements array
-    mov rdx, 0                      ; amount of common elements
+    xor rdx, rdx                      ; amount of common elements
     .loop_arr2:
         cmp rcx, 0
         je .done
@@ -258,7 +285,7 @@ find_unique:
     ; rbp - size of the array for comparison; counter of the inner loop
     ; rdi - pointer to the array for comparison
 
-    mov rdx, 0                      ; amount of common elements
+    xor rdx, rdx                      ; amount of common elements
     .loop_arr1:
         cmp rcx, 0
         je .done
@@ -305,7 +332,7 @@ print_newline:
     push rcx
 
     mov rsi, newline_ascii      ; address of newline character
-    mov rdx, 1                   ; length
+    mov rdx, 1                  ; length
     mov rdi, STDOUT
     mov rax, SYS_WRITE
     syscall
