@@ -7,14 +7,16 @@ All tasks are implemented for the NASM assembler in Linux environment.
 
 `sudo apt update`
 
-`sudo apt install nasm`
-
-`sudo apt install gdb`
+`sudo apt install nasm gdb gcc`
 
 ### Compilation and linking
-`nasm -f elf64 <task_n>.asm`
+`nasm -f elf64 task_<n>.asm`
 
-`ld -o <task_n> <task_n>.o`
+`ld -o task_<n> task_<n>.o`
 
-`./<task_n>`
+`./task_<n>`
 
+#### C program compile
+`gcc -o task_<n> task_<n>.c`
+
+`./task_<n>`
