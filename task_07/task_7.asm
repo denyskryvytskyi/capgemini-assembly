@@ -1,6 +1,12 @@
-SYS_EXIT equ 60
+; TASK: Calculate the Factorial of a Number Using Loop and Recursion Optimization Techniques
+; IMPLEMETED optimization:
+;   - Tail Recursion
+;   - Loop Unrolling
+;   - Register Allocation
+
 SYS_READ equ 0
 SYS_WRITE equ 1
+SYS_EXIT equ 60
 STDIN equ 0
 STDOUT equ 1
 
@@ -293,5 +299,5 @@ factorial_recursed:
         jo .exit
         dec rbx
         call factorial_recursed
-.exit:
+    .exit:
 ret

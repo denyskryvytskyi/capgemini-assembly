@@ -1,6 +1,12 @@
-SYS_EXIT equ 1
-SYS_READ equ 3
-SYS_WRITE equ 4
+; TASK: Find the Maximum Value in an Array
+; IMPLEMETED:
+;   - min and max procedures
+;   - ser can select from the keyboard what to search for: minimum or maximum
+;   - output of the result
+
+SYS_READ equ 0
+SYS_WRITE equ 1
+SYS_EXIT equ 60
 STDIN equ 0
 STDOUT equ 1
 
@@ -30,7 +36,9 @@ section .text
     global _start
 
 _start:
-.choose_max_or_min:
+    ; print array
+    call print_array
+
     ; print prompt to choose logic min/max
     mov esi, prompt_choice
     mov edx, prompt_choice_len
@@ -47,42 +55,39 @@ _start:
     ; invalid choice
     jmp .exit
 
-.find_min:
-    call min
-    jmp .print_result
+    .find_min:
+        call min
+        jmp .print_result
 
-.find_max:
-    call max
+    .find_max:
+        call max
 
-.print_result:
-    call print_array
+    .print_result:
+        mov esi, result_msg
+        mov edx, result_msg_len
+        call print_string
 
-    ; print result (min/max value)
-    mov esi, result_msg
-    mov edx, result_msg_len
-    call print_string
+        ; convert integer to string
+        mov eax, [result]
+        call itoa
+        call print_int
+        call print_newline
 
-    ; convert integer to string
-    mov eax, [result]
-    call itoa
-    call print_int
-    call print_newline
-
-.exit:
-    mov eax, 60                         ; sys_exit system call
-    xor edi, edi                        ; exit status 0
-    syscall
+    .exit:
+        mov eax, SYS_EXIT                   ; sys_exit system call
+        xor edi, edi                        ; exit status 0
+        syscall
 
 ; ------------------ helpers --------------------
 print_string:
-    mov eax, SYS_EXIT
+    mov eax, SYS_WRITE
     mov edi, STDOUT
     syscall
 ret
 
 read_int:
-    mov eax, 0                          ; sys_read
-    mov edi, 0                          ; file descriptor (stdin)
+    mov eax, SYS_READ                   ; sys_read
+    mov edi, STDIN                      ; file descriptor (stdin)
     mov esi, input_buffer               ; buffer to store input
     mov edx, 4                          ; number of bytes to read
     syscall
@@ -202,7 +207,7 @@ print_newline:
     mov esi, newline                    ; address of newline character
     mov edx, 1                          ; length of 1 byte
     mov edi, STDOUT
-    mov eax, SYS_EXIT
+    mov eax, SYS_WRITE
     syscall
 ret
 
@@ -213,7 +218,7 @@ print_int:
 
     mov esi, edi
     mov edi, STDOUT
-    mov eax, SYS_EXIT
+    mov eax, SYS_WRITE
     syscall
 ret
 
@@ -236,7 +241,7 @@ print_array:
         mov esi, space_char                    ; address of newline character
         mov edx, 1                             ; length of 1 byte
         mov edi, STDOUT
-        mov eax, SYS_EXIT
+        mov eax, SYS_WRITE
         syscall
 
         inc ebp

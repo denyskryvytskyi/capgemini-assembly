@@ -4,10 +4,10 @@
 ; TODO (possible improvements):
 ;   - usage of C malloc function for more complex and useful allocation
 
-SYS_EXIT equ 60
 SYS_READ equ 0
 SYS_WRITE equ 1
 SYS_BRK equ 12
+SYS_EXIT equ 60
 STDIN equ 0
 STDOUT equ 1
 

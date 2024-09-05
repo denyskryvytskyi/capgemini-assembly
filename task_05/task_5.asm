@@ -1,6 +1,11 @@
-SYS_EXIT equ 1
-SYS_READ equ 3
-SYS_WRITE equ 4
+; TASK: Find the Maximum Value in an Array optimization techniques
+; IMPLEMETED optimization:
+;   - Loop Unrolling
+;   - Register Allocation
+
+SYS_READ equ 0
+SYS_WRITE equ 1
+SYS_EXIT equ 60
 STDIN equ 0
 STDOUT equ 1
 
@@ -23,13 +28,15 @@ section .data
 section .bss
     input_buffer resb 4                 ; buffer to store input number
     result resb 4                       ; result number based on comparisons
-    itoa_result_buffer resb 20               ; buffer to store the digits in string
+    itoa_result_buffer resb 20          ; buffer to store the digits in string
     choice resd 1
 
 section .text
     global _start
 
 _start:
+    call print_array
+
     ; print prompt to choose logic min/max
     mov esi, prompt_choice
     mov edx, prompt_choice_len
@@ -46,42 +53,40 @@ _start:
     ; invalid choice
     jmp .exit
 
-.find_min:
-    call min
-    jmp .print_result
+    .find_min:
+        call min
+        jmp .print_result
 
-.find_max:
-    call max
+    .find_max:
+        call max
 
-.print_result:
-    call print_array
+    .print_result:
+        ; print result (min/max value)
+        mov esi, result_msg
+        mov edx, result_msg_len
+        call print_string
 
-    ; print result (min/max value)
-    mov esi, result_msg
-    mov edx, result_msg_len
-    call print_string
+        ; convert integer to string
+        mov eax, [result]
+        call itoa
+        call print_int
+        call print_newline
 
-    ; convert integer to string
-    mov eax, [result]
-    call itoa
-    call print_int
-    call print_newline
-
-.exit:
-    mov eax, 60                         ; sys_exit system call
-    xor edi, edi                        ; exit status 0
-    syscall
+    .exit:
+        mov eax, SYS_EXIT                   ; sys_exit system call
+        xor edi, edi                        ; exit status 0
+        syscall
 
 ; ------------------ helpers --------------------
 print_string:
-    mov eax, SYS_EXIT
+    mov eax, SYS_WRITE
     mov edi, STDOUT
     syscall
 ret
 
 read_int:
-    mov eax, 0                          ; sys_read
-    mov edi, 0                          ; file descriptor (stdin)
+    mov eax, SYS_READ                   ; sys_read
+    mov edi, STDIN                      ; file descriptor (stdin)
     mov esi, input_buffer               ; buffer to store input
     mov edx, 4                          ; number of bytes to read
     syscall
@@ -135,7 +140,7 @@ max:
     mov esi, numbers + 4                    ; current array pointer
 
     ; loop through the array and compare elements
-.loop_array:
+    .loop_array:
         mov ebx, [esi]
         cmp eax, ebx            ; set flag
         cmovl eax, ebx          ; move by flag
@@ -155,20 +160,20 @@ max:
         add esi, 16             ; move pointer to the next group of four numbers
         loop .loop_array
 
-.process_remainder:
-    mov ecx, numbers_len - 1
-    and ecx, 3  ; Get remainder when divided by 4
-    jz .done
+    .process_remainder:
+        mov ecx, numbers_len - 1
+        and ecx, 3  ; Get remainder when divided by 4
+        jz .done
 
-    .remainder_loop:
-        mov ebx, [esi]
-        cmp eax, ebx
-        cmovl eax, ebx
-        add esi, 4
-    loop .remainder_loop
+        .remainder_loop:
+            mov ebx, [esi]
+            cmp eax, ebx
+            cmovl eax, ebx
+            add esi, 4
+        loop .remainder_loop
 
-.done:
-    mov [result], eax
+    .done:
+        mov [result], eax
 ret
 
 ; proc to find minimum value
@@ -183,7 +188,7 @@ min:
     mov esi, numbers + 4                    ; current array pointer
 
     ; loop through the array and compare elements
-.loop_array:
+    .loop_array:
         mov ebx, [esi]
         cmp eax, ebx            ; set flag
         cmovg eax, ebx          ; move by flag
@@ -203,20 +208,20 @@ min:
         add esi, 16             ; move pointer to the next group of four numbers
         loop .loop_array
 
-.process_remainder:
-    mov ecx, numbers_len - 1
-    and ecx, 3  ; Get remainder when divided by 4
-    jz .done
+    .process_remainder:
+        mov ecx, numbers_len - 1
+        and ecx, 3  ; Get remainder when divided by 4
+        jz .done
 
-    .remainder_loop:
-        mov ebx, [esi]
-        cmp eax, ebx
-        cmovg eax, ebx
-        add esi, 4
-    loop .remainder_loop
+        .remainder_loop:
+            mov ebx, [esi]
+            cmp eax, ebx
+            cmovg eax, ebx
+            add esi, 4
+        loop .remainder_loop
 
-.done:
-    mov [result], eax
+    .done:
+        mov [result], eax
 ret
 
 ; proc to convert number to string
@@ -230,24 +235,24 @@ itoa:
     inc esi             ; set negative flag
     neg eax             ; make the number positive
 
-.process_digits:
-    add edi, 19             ; fill it from right to left
-    mov ecx, 10             ; divisor for extracting digits
+    .process_digits:
+        add edi, 19             ; fill it from right to left
+        mov ecx, 10             ; divisor for extracting digits
 
-    .convert_loop:
-        xor edx, edx       ; clear edx for division
-        div ecx            ; divide eax by 10, remainder in edx
-        add dl, '0'        ; convert remainder to ASCII
-        dec edi            ; move buffer pointer left
-        mov [edi], dl      ; store the digit
-        test eax, eax      ; check if quotient is zero
-        jnz .convert_loop      ; if not, continue loop
+        .convert_loop:
+            xor edx, edx       ; clear edx for division
+            div ecx            ; divide eax by 10, remainder in edx
+            add dl, '0'        ; convert remainder to ASCII
+            dec edi            ; move buffer pointer left
+            mov [edi], dl      ; store the digit
+            test eax, eax      ; check if quotient is zero
+            jnz .convert_loop      ; if not, continue loop
 
-    ; check if the negative flag is set
-    test esi, esi
-    jz .done
-    dec edi
-    mov byte [edi], '-' ; Add minus sign to the buffer
+        ; check if the negative flag is set
+        test esi, esi
+        jz .done
+        dec edi
+        mov byte [edi], '-' ; Add minus sign to the buffer
 
     .done:
 ret
@@ -256,7 +261,7 @@ print_newline:
     mov esi, newline                    ; address of newline character
     mov edx, 1                          ; length of 1 byte
     mov edi, STDOUT
-    mov eax, SYS_EXIT
+    mov eax, SYS_WRITE
     syscall
 ret
 
@@ -267,7 +272,7 @@ print_int:
 
     mov esi, edi
     mov edi, STDOUT
-    mov eax, SYS_EXIT
+    mov eax, SYS_WRITE
     syscall
 ret
 
@@ -290,7 +295,7 @@ print_array:
         mov esi, space_char                    ; address of newline character
         mov edx, 1                             ; length of 1 byte
         mov edi, STDOUT
-        mov eax, SYS_EXIT
+        mov eax, SYS_WRITE
         syscall
 
         inc ebp

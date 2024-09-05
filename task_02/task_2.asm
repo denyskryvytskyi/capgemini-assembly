@@ -1,10 +1,11 @@
+; TASK: Reverse a String
+
 SYS_EXIT equ 1
-SYS_READ equ 3
 SYS_WRITE equ 4
-STDIN equ 0
 STDOUT equ 1
+SYS_CALL equ 0x80
 ASCII_A equ 'a'
-SYSCALL equ 0x80
+ASCII_Z equ 'z'
 
 section .data
     msg db 'Capgemini task 2', 0xa
@@ -26,41 +27,43 @@ _start:
     mov ebx, STDOUT         ; file descriptor
     mov ecx, reversed_msg   ; store result
     mov edx, len            ; length of the result
-    int SYSCALL
+    int SYS_CALL
 
     ; exit
     mov eax, SYS_EXIT
-    int SYSCALL
+    int SYS_CALL
 
 to_uppercase:
     mov ecx, len - 1
-    mov esi, 0              ; character counter
+    mov esi, msg                  ; character counter
 
     uppercase_loop:
-        mov al, [msg + esi] ; get next character
+        mov al, [esi]     ; get next character
 
-        cmp al, 'a'         ; compare with ASCII 'a'
+        cmp al, ASCII_A         ; compare with ASCII 'a'
         jl next_char
-        cmp al, 'z'         ; compare with ASCII 'z'
+        cmp al, ASCII_Z         ; compare with ASCII 'z'
         jg next_char
 
-        sub al, 32          ; get uppercase ASCII character
-        mov [msg + esi], al
+        sub al, 32              ; get uppercase ASCII character
+        mov [esi], al
 
         next_char:
-        inc esi
+            inc esi
     loop uppercase_loop
 ret
 
 reverse_string:
-    mov ecx, len
+    mov ecx, len - 1
 
-    mov esi, 0              ; reversed str counter sta
-    mov edi, len - 2        ; init str counter, -2 because we need to skip new line character
+    mov esi, msg                 ; init string pointer
+    mov edi, reversed_msg        ; reversed string pointer
+    add edi, ecx                 ; mov pointer to the last character
+    sub edi, 1                   ; -1 byte back from new line character
 
     reverse_loop:
-        mov al, [msg + edi]
-        mov [reversed_msg + esi], al
+        mov al, [esi]
+        mov [edi], al
         inc esi
         dec edi
     loop reverse_loop

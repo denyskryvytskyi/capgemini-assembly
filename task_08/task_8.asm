@@ -1,6 +1,12 @@
-SYS_EXIT equ 60
+; TASK: Sort an Array Using the Bubble Sort Algorithm
+; IMPLEMETED:
+;   - ascending and descending order sorting 
+;   - user input of the sorting order
+;   - output of the unsorted and sorted arrays
+
 SYS_READ equ 0
 SYS_WRITE equ 1
+SYS_EXIT equ 60
 STDIN equ 0
 STDOUT equ 1
 
@@ -8,14 +14,14 @@ ARR_SIZE equ 12
 BYTES_PER_NUMBER equ 4
 
 section .data
-    prompt_number db "Choose sorting order: (1) ascending, (0)(descending): ", 0
+    prompt_number db "Choose sorting order: (1) ascending, (0) descending: ", 0
     prompt_number_len equ $ - prompt_number
 
     arr_msg db "Array (init): "
     arr_msg_len equ $ - arr_msg
 
     arr_msg_sorted db "Array (sorted): "
-    arr_msg_sorted_len equ $ - arr_msg
+    arr_msg_sorted_len equ $ - arr_msg_sorted
 
     newline_ascii db 0xa                   ; newline character
     space_ascii db 0x20                    ; space character
@@ -32,6 +38,12 @@ section .text
     global _start
 
 _start:
+    mov rsi, arr_msg
+    mov rdx, arr_msg_len
+    call print_string
+    mov ebx, arr
+    call print_array
+
     ; print start prompt
     mov rsi, prompt_number
     mov rdx, prompt_number_len
@@ -39,13 +51,16 @@ _start:
     call read_int
     mov [choice], eax
 
-    mov ecx, ARR_SIZE * BYTES_PER_NUMBER                   ; Load the length of the array into ecx
-    mov esi, arr             ; Load the address of source_array into esi (source index)
-    mov edi, arr_sorted   ; Load the address of destination_array into edi (destination index)
-    rep movsb                 ; Copy ecx bytes from source_array to destination_array
+    mov ecx, ARR_SIZE * BYTES_PER_NUMBER    ; Load the length of the array into ecx
+    mov esi, arr                            ; pointer to default array
+    mov edi, arr_sorted                     ; pointer to result array
+    rep movsb                               ; copy ecx bytes from source to destination
     call bubble_sort
 
     .print_result:
+        mov rsi, arr_msg_sorted
+        mov rdx, arr_msg_sorted_len
+        call print_string
         mov ebx, arr_sorted
         call print_array
 
@@ -171,7 +186,7 @@ ret
 print_array:
     mov ecx, ARR_SIZE         ; size of array for loop counter
     .loop_array:
-        mov eax, [ebx]                  ; next number
+        mov eax, [ebx]        ; next number
         call itoa
         call print_int
 
@@ -180,7 +195,7 @@ print_array:
         mov edx, 1
         call print_string
 
-        add ebx, BYTES_PER_NUMBER                      ; move pointer to the next element
+        add ebx, BYTES_PER_NUMBER  ; move pointer to the next element
         loop .loop_array
 
     call print_newline
@@ -188,7 +203,7 @@ ret
 
 bubble_sort:
     ; we need two loops, two counters for them and movemenet based on comparison
-    mov ecx, ARR_SIZE       ; counter for the outer loop
+    mov ecx, ARR_SIZE           ; counter for the outer loop
     mov edi, [choice]
     .outer_loop:
         mov esi, arr_sorted     ; reset pointer to the array

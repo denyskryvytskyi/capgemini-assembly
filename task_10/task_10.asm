@@ -1,8 +1,9 @@
 ; TASK: Memory Segmentation by Accessing Data from Different Segments
+; NOTE: In 64-bit mode, segmentation is simplified, and there's no need to manually load segment registers like DS and ES for regular data access. The memory model is flat, and we just use 64-bit addresses.
 
-SYS_EXIT equ 60
 SYS_READ equ 0
 SYS_WRITE equ 1
+SYS_EXIT equ 60
 STDIN equ 0
 STDOUT equ 1
 

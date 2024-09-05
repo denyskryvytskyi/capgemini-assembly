@@ -8,9 +8,9 @@
 ;   - multiplication and division operations
 ;   - brackets and operations priorities
 
-SYS_EXIT equ 60
 SYS_READ equ 0
 SYS_WRITE equ 1
+SYS_EXIT equ 60
 STDIN equ 0
 STDOUT equ 1
 
@@ -200,7 +200,7 @@ read_number:
         cmp bl, '9'
         jg .check_negative
 
-        sub bl, '0'                    ; convert ASCII to number
+        sub bl, '0'                ; convert ASCII to number
 
         imul edi, 10               ; multiply current result by 10
         jo .overflow

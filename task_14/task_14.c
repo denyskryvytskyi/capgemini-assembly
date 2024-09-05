@@ -1,3 +1,11 @@
+/*
+* TASK: Inline Assembly in a C Program
+* Implemented:
+*   - sum, max, dot_product function with inline assembly
+* TODO:
+*   - loop unrolling optimization
+*/
+
 #include <stdio.h>
 
 int sum(int *array, int length) {
