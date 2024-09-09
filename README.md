@@ -2,7 +2,7 @@
 All tasks are implemented for the NASM assembler in Linux environment.
 
 ## Getting Started
-### Work environment preperation
+### Work environment preparation
 `git clone https://github.com/denyskryvytskyi/capgemini-assembly`
 
 `sudo apt update`
@@ -16,7 +16,7 @@ All tasks are implemented for the NASM assembler in Linux environment.
 
 `./task_<n>`
 
-#### C program compile
+#### C program compilation
 `gcc -o task_<n> task_<n>.c`
 
 `./task_<n>`
